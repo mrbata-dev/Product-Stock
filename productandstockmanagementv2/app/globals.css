@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+
+@theme {
+  --color-dark-900: #111111;
+  --color-dark-700: #757575;
+  --color-dark-500: #AAAAAA;
+  --color-light-100: #FFFFFF;
+  --color-light-200: #FAFAFA;
+  --color-light-300: #E5E5E5;
+  --color-light-400: #CCCCCC;
+  --color-green: #007D48;
+  --color-red: #D33D48;
+  --color-orange: #D37913;
+  --font-inter: 'Inter', sans-serif;
+
+  --text-heading-1: 36px;
+  --text-heading-1-font-weight: 700;
+
+  --text-heading-2: 28px;
+  --text-heading-2-font-weight: 600;
+
+  --text-heading-3: 20px;
+  --text-heading-3-font-weight: 600;
+
+  --text-sub-heading: 18px;
+  --text-sub-heading-font-weight: 500;
+
+  --text-base: 16px;
+  --text-base-font-weight: 400;
+
+  --text-input: 14px;
+  --text-input-font-weight: 400;
+
+}
+
+@layer components {
+  .large-btn {
+    height: 3.25rem;
+    font-size: 1.125rem;
+    padding-inline: 2rem;
+    border-radius: 0.5rem;
+  }
+  .small-btn {
+    height: 2.25rem;
+    font-size: 0.785rem;
+    padding-inline: 1rem;
+    border-radius: 0.5rem;
+  }
+  .medium-btn {
+    height: 2.75rem;
+    font-size: 1rem;
+    padding-inline: 1.5rem;
+    border-radius: 0.5rem;
+  }
+
+}
+
+  .gradient_bg{
+    background: #DADADA;
+background: radial-gradient(circle, rgba(218, 218, 218, 1) 0%, rgba(0, 0, 0, 1) 54%);
+  }
+
+  @theme inline {
+  @keyframes fadeSlideIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0px);
+
+    }
+
+  }
+  @keyframes slideRightIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateX(0px);
+
+    }
+
+  }
+  @keyframes testimonialIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0px) scale(1);
+
+    }
+
+  }
+
+}
+
+.tableHead{
+  font-weight: 600;
+  font-size: 1rem;
+
+  color: var(--color-dark-900);
+}
+
+input{
+  width: 100%;
+  background: #EFEFEF;
+  height: 3rem;
+  padding-left: 10px;
+  border-radius: 5px;
+  border: none;
+  outline: none;
+  
+
+}
