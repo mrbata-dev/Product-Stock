@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { inter } from "@/lib/font";
 import "./globals.css";
 import AuthProvider from "@/context/AuthProvider";
+import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "Product and Stock Management",
@@ -19,7 +20,12 @@ export default function RootLayout({
       <body
         className={`${inter.variable} antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+        <Toaster position="top-center" />
+  
+          {children}
+          </AuthProvider>
+
       </body>
     </html>
   );

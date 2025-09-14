@@ -20,7 +20,7 @@ export const WelcomeMsg = () => {
     }
 
   return (
-    <div className=' px-4 mt-8'>
+    <div className=' px-4 mt-8 text-left w-full'>
       <h1 className='text-md font-bold'>{GetGreeting()}, <br /> <span className='text-2xl md:text-4xl font-bold'>{session?.user?.name}👋</span></h1>
     </div>
   )

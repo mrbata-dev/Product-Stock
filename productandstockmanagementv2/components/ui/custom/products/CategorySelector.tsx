@@ -6,6 +6,7 @@ interface CategoryDropdownSelectorProps {
   onChange?: (categories: string[]) => void; 
 }
 
+
 interface Category {
   id: string; 
   title: string; 
@@ -64,7 +65,7 @@ export default function CategoryDropdownSelector({onChange} : CategoryDropdownSe
     setError('');
 
     try {
-      console.log('Sending request to add category:', newCategoryName.trim());
+      // console.log('Sending request to add category:', newCategoryName.trim());
       
       const res = await fetch('/api/categories', {
         method: 'POST',
@@ -74,9 +75,9 @@ export default function CategoryDropdownSelector({onChange} : CategoryDropdownSe
         }),
       });
 
-      console.log('Response status:', res.status);
+      // console.log('Response status:', res.status);
       const data = await res.json();
-      console.log('Response data:', data);
+      // console.log('Response data:', data);
 
       if (!res.ok) {
         setError(data.error || 'Failed to add category');
@@ -91,7 +92,7 @@ export default function CategoryDropdownSelector({onChange} : CategoryDropdownSe
       }
 
       // Update local state immediately with the new category
-      console.log('Adding category to local state:', data);
+      // console.log('Adding category to local state:', data);
       setCategories(prev => {
         const updated = [...prev, data];
         console.log('Updated categories:', updated);
@@ -101,7 +102,7 @@ export default function CategoryDropdownSelector({onChange} : CategoryDropdownSe
       // Auto-select the newly created category
       setSelectedCategories(prev => {
         const newState = [...prev, data.id];
-        console.log('Updated selected categories:', newState);
+        // console.log('Updated selected categories:', newState);
         onChange?.(newState);
         return newState;
       });
@@ -110,9 +111,9 @@ export default function CategoryDropdownSelector({onChange} : CategoryDropdownSe
       setNewCategoryName('');
       setShowAddForm(false);
       setError('');
-      console.log('Category added successfully');
+      // console.log('Category added successfully');
       
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error adding category:', err);
       setError('Something went wrong');
     } finally {

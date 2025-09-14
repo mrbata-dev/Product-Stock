@@ -3,7 +3,7 @@ import React from 'react'
 
 const dashboard = () => {
   return (
-    <div>
+    <div className='flex items-end-safe justify-end'>
       <div>
         <WelcomeMsg/>
       </div>

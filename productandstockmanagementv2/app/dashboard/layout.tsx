@@ -7,7 +7,7 @@ type DashBoardLayoutProps = {
 
 const DashBoardLayout = ({ children }: DashBoardLayoutProps) => {
 
-  return <main className='flex'>
+  return <main className='flex justify-center'>
     {/* sidebar */}
     <div className='bg-white '>
       <SideBar/>

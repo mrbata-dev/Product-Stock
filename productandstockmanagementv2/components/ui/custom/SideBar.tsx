@@ -20,36 +20,36 @@ const sideBarItems = [
     href: '/dashboard/products',
     icon: '📦'
   },
-  {
-    title: 'Stock',
-    href: '/dashboard/stock',
-    icon: '📋'
-  },
-  {
-    title: 'Orders',
-    href: '/dashboard/orders',
-    icon: '🛒'
-  },
+  // {
+  //   title: 'Stock',
+  //   href: '/dashboard/stock',
+  //   icon: '📋'
+  // },
+  // {
+  //   title: 'Orders',
+  //   href: '/dashboard/orders',
+  //   icon: '🛒'
+  // },
   {
     title: 'Customers',
     href: '/dashboard/customers',
     icon: '👥'
   },
-  {
-    title: 'Suppliers',
-    href: '/dashboard/suppliers',
-    icon: '🏪'
-  },
+  // {
+  //   title: 'Suppliers',
+  //   href: '/dashboard/suppliers',
+  //   icon: '🏪'
+  // },
   {
     title: 'Categories',
     href: '/dashboard/categories',
     icon: '🏷️'
   },
-  {
-    title: 'Warehouses',
-    href: '/dashboard/warehouses',
-    icon: '🏭'
-  },
+  // {
+  //   title: 'Warehouses',
+  //   href: '/dashboard/warehouses',
+  //   icon: '🏭'
+  // },
   {
     title: 'Settings',
     href: '/settings',

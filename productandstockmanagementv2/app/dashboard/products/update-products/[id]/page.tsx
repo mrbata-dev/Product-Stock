@@ -3,14 +3,17 @@ import HeaderContent from "@/components/ui/custom/HeaderContent";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Store } from "lucide-react";
+import { Store, ArrowLeft } from "lucide-react";
 import React from "react";
 import MultipleImageUpload from "@/components/ui/custom/MultipleImageUpload";
 import CategoryDropdownSelector from "@/components/ui/custom/products/CategorySelector";
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
-import { uploadImages } from "../action";
+
+import { useParams, useRouter } from "next/navigation";
+import { uploadImages } from "../../action";
+import Image from "next/image";
 
 type Inputs = {
   title: string;
@@ -30,8 +33,35 @@ type Inputs = {
   brand: string;
 };
 
-const AddNewProducts = () => {
+interface UpdateProductProps {
+  productId: string;
+  initialData?: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    discountPercentage: number;
+    stock: number;
+    sku: string;
+    sizes: string[];
+    gender: "male" | "female" | "unisex";
+    images: string[];
+    categoryIds: string[];
+    warrantyInformation: string;
+    returnPolicy: string;
+    shippingInformation: string;
+    brand: string;
+  };
+}
+
+const UpdateProduct = ({  initialData }: UpdateProductProps) => {
+  const {id} = useParams();
+  console.log(id);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(!initialData);
+  const [existingImages, setExistingImages] = React.useState<string[]>([]);
+  const router = useRouter();
+
   const {
     register,
     handleSubmit,
@@ -61,61 +91,117 @@ const AddNewProducts = () => {
     },
   });
 
-  const generateSKU = (brand: string, title: string): string => {
-    const brandInitials = brand
-      .replace(/\s+/g, "")
-      .substring(0, 3)
-      .toUpperCase();
-    const titleInitials = title
-      .replace(/\s+/g, "")
-      .substring(0, 3)
-      .toUpperCase();
+  // Register the file input manually since it's a custom component
+  const { ref, ...rest } = register('images', {
+    validate: {
+      fileSize: (files) => {
+        if (!files || files.length === 0) return true; // No file is allowed
+        return files.every(file => file.size <= 5 * 1024 * 1024) || 'Max file size is 5MB';
+      },
+      fileType: (files) => {
+        if (!files || files.length === 0) return true; // No file is allowed
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        return files.every(file => allowedTypes.includes(file.type)) || 'Only JPEG, PNG, and WebP images are allowed';
+      },
+      maxFiles: (files) => {
+        if (!files) return true;
+        return files.length <= 5 || 'You can upload up to 5 images';
+      }
+    }
+  });
 
-    const timestamp = Date.now().toString().slice(-6);
-    const randomSuffix = Math.floor(Math.random() * 1000)
-      .toString()
-      .padStart(3, "0");
+  // Fetch product data if not provided
+  React.useEffect(() => {
+    if (!initialData && id) {
+      fetchProductData();
+    } else if (initialData) {
+      populateForm(initialData);
+    }
+  }, [id, initialData]);
 
-    return `${brandInitials}${titleInitials}${timestamp}${randomSuffix}`;
+  const fetchProductData = async () => {
+    try {
+      const response = await fetch(`/api/products/${id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch product data');
+      }
+      const data = await response.json();
+      populateForm(data);
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      toast.error('Failed to load product data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  interface ProductFormData {
+    title?: string;
+    description?: string;
+    price?: number;
+    discountPercentage?: number;
+    stock?: number;
+    sku?: string;
+    sizes?: string[];
+    gender?: "male" | "female" | "unisex";
+    categoryIds?: string[];
+    warrantyInformation?: string;
+    returnPolicy?: string;
+    shippingInformation?: string;
+    brand?: string;
+  }
+
+  const populateForm = (data: ProductFormData) => {
+    // Set form values
+    setValue("title", data.title || "");
+    setValue("description", data.description || "");
+    setValue("price", data.price || 0);
+    setValue("discount", data.discountPercentage || 0);
+    setValue("stock", data.stock || 0);
+    setValue("sku", data.sku || "");
+    setValue("sizes", data.sizes || []);
+    setValue("gender", data.gender || "male");
+    setValue("categoryIds", data.categoryIds || []);
+    setValue("warranty", data.warrantyInformation || "");
+    setValue("returnPolicy", data.returnPolicy || "");
+    setValue("shipping", data.shippingInformation || "");
+    setValue("brand", data.brand || "");
+    
+    // Set existing images
+    setExistingImages(data.images || []);
+    setIsLoading(false);
   };
 
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     console.log("Form submitted with data:", data);
     setIsSubmitting(true);
-    const toastId = toast.loading("Creating product...");
-   
+    const toastId = toast.loading("Updating product...");
 
+    try {
+      let imageUrls = [...existingImages]; // Keep existing images
 
-    //   image uploaded 1st
-    if (data.images.length === 0) {
-        toast.error("Please select at least one image.", { id: toastId });
-        setIsSubmitting(false);
-        return;
+      // Upload new images if any
+      if (data.images.length > 0) {
+        const imageFormData = new FormData();
+        data.images.forEach(file => {
+          imageFormData.append("images", file);
+        });
+
+        console.log("Uploading new images to Supabase...");
+        const uploadResult = await uploadImages(imageFormData);
+
+        if (uploadResult.error) {
+          console.error("❌ Image upload failed:", uploadResult.error);
+          throw new Error(`Error uploading images: ${uploadResult.error}`);
+        }
+
+        // Add new images to existing ones
+        imageUrls = [...imageUrls, ...uploadResult.urls];
+        console.log("✅ New images uploaded successfully. All URLs:", imageUrls);
       }
-  
-      const imageFormData = new FormData();
-      data.images.forEach(file => {
-        imageFormData.append("images", file);
-      });
 
-    console.log("Uploading images to Supabase...");
-    const uploadResult = await uploadImages(imageFormData);
-
-    if (uploadResult.error) {
-      console.error("❌ Image upload failed:", uploadResult.error);
-      alert(`Error uploading images: ${uploadResult.error}`);
-      return;
-    }
-
-    const imageUrls = uploadResult.urls;
-    console.log("✅ Images uploaded successfully. URLs:", imageUrls);
-
-    
-try {
-    const sku = generateSKU(data.brand, data.title);
-    const productData = {
+      const productData = {
         ...data,
-        sku : sku,
         images: imageUrls,
         price: Number(data.price),
         discountPercentage: Number(data.discount),
@@ -126,17 +212,18 @@ try {
         warrantyInformation: data.warranty,
         returnPolicy: data.returnPolicy,
         shippingInformation: data.shipping,
-    };
-    console.log('Sending JSON data to API:', productData);
+      };
 
-      // Send the JSON object, not FormData
-      const res = await fetch('/api/products/addProducts', {
-        method: 'POST',
+      console.log('Sending JSON data to API:', productData);
+
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PUT', 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(productData), 
+        body: JSON.stringify(productData),
       });
+console.log(res);
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -144,28 +231,65 @@ try {
       }
 
       const result = await res.json();
-      console.log("✅ Product added successfully:", result);
-      toast.success("Product added successfully!", { id: toastId });
-      reset(); // Reset form
+      console.log("✅ Product updated successfully:", result);
+      toast.success("Product updated successfully!", { id: toastId });
+      
+      router.push(`/dashboard/products/${id}`);
 
     } catch (err) {
-      console.error('❌ Error adding product:', err);
+      console.error('❌ Error updating product:', err);
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      toast.error(`Error adding product: ${errorMessage}`, { id: toastId });
+      toast.error(`Error updating product: ${errorMessage}`, { id: toastId });
     } finally {
-      setIsSubmitting(false); // Re-enable button
+      setIsLoading(false)
+      setIsSubmitting(false);
     }
   };
 
-//   console.log("Current form values:", watch());
+  const handleGoBack = () => {
+    router.back();
+  };
+
+  const removeExistingImage = (imageUrl: string) => {
+    setExistingImages(prev => prev.filter(url => url !== imageUrl));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setValue('images', files);
+    }
+  };
+
+  // if (isLoading) {
+  //   return (
+  //     <div className="container mx-auto py-8">
+  //       <div className="flex items-center justify-center min-h-[400px]">
+  //         <div className="text-center">
+  //           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-500 mx-auto"></div>
+  //           <p className="mt-4 text-gray-600">Loading product data...</p>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="container mx-auto py-8">
       <header className="flex items-center gap-4">
+        <Button
+          type="button"
+          onClick={handleGoBack}
+          variant="outline"
+          size="icon"
+          className="hover:bg-gray-100"
+        >
+          <ArrowLeft size={20} />
+        </Button>
         <span>
           <Store size={30} />
         </span>
-        <HeaderContent title="Add New Product" />
+        <HeaderContent title="Update Product" />
       </header>
 
       <main>
@@ -186,9 +310,7 @@ try {
                   Name Product *
                 </Label>
                 <input
-                  {...register("title", {
-                    required: "Product name is required",
-                  })}
+                  {...register("title")}
                   type="text"
                   placeholder="Enter product title"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -200,7 +322,21 @@ try {
                 )}
               </div>
 
-              <input type="hidden" {...register("sku")} />
+              {/* SKU (Read-only for updates) */}
+              <div className="mt-4">
+                <Label className="text-md pb-2 font-semibold">
+                  SKU (Product Code)
+                </Label>
+                <input
+                  {...register("sku")}
+                  type="text"
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  SKU cannot be modified after product creation
+                </p>
+              </div>
 
               {/* Description */}
               <div className="mt-4">
@@ -208,9 +344,7 @@ try {
                   Product Description *
                 </Label>
                 <Textarea
-                  {...register("description", {
-                    required: "Description is required",
-                  })}
+                  {...register("description")}
                   className="border-0 outline-0 focus:outline-0 focus:border-0 focus:ring-0 bg-[#EFEFEF]"
                   placeholder="Write the descriptions about the products..."
                 />
@@ -238,8 +372,7 @@ try {
                           className="peer hidden"
                         />
                         <span className="px-6 py-4 rounded-xl font-semibold bg-[#EFEFEF] shadow-sm peer-checked:bg-black peer-checked:text-white transition-all">
-                          {size === "S" ? "SM" : size}{" "}
-                          {/* Display SM but send S */}
+                          {size === "S" ? "SM" : size}
                         </span>
                       </label>
                     ))}
@@ -254,7 +387,7 @@ try {
                   <Controller
                     name="gender"
                     control={control}
-                    rules={{ required: "Gender selection is required" }}
+                    // rules={{ required: "Gender selection is required" }}
                     render={({ field }) => (
                       <RadioGroup
                         value={field.value}
@@ -298,7 +431,7 @@ try {
                   </Label>
                   <input
                     {...register("price", {
-                      required: "Price is required",
+                      // required: "Price is required",
                       min: { value: 0, message: "Price must be positive" },
                     })}
                     type="number"
@@ -316,7 +449,7 @@ try {
                   <Label className="text-md pb-2 font-semibold">Stock *</Label>
                   <input
                     {...register("stock", {
-                      required: "Stock is required",
+                      // required: "Stock is required",
                       min: { value: 0, message: "Stock must be positive" },
                     })}
                     type="number"
@@ -358,7 +491,7 @@ try {
                 <div className="flex-1">
                   <Label className="text-md pb-2 font-semibold">Brand *</Label>
                   <input
-                    {...register("brand", { required: "Brand is required" })}
+                    {...register("brand")}
                     type="text"
                     placeholder="Enter brand name"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -381,12 +514,10 @@ try {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <Label className="text-md pb-2 font-semibold">
-                    Warranty *
+                    Warranty
                   </Label>
                   <input
-                    {...register("warranty", {
-                      // required: "Warranty information is required",
-                    })}
+                    {...register("warranty")}
                     type="text"
                     placeholder="e.g., 1 year warranty"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -403,7 +534,7 @@ try {
                   </Label>
                   <input
                     {...register("shipping", {
-                      required: "Shipping information is required",
+                      // required: "Shipping information is required",
                     })}
                     type="text"
                     placeholder="e.g., Free shipping"
@@ -423,9 +554,7 @@ try {
                     Return Policy *
                   </Label>
                   <input
-                    {...register("returnPolicy", {
-                      required: "Return policy is required",
-                    })}
+                    {...register("returnPolicy")}
                     type="text"
                     placeholder="e.g., 30 days return policy"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -445,30 +574,54 @@ try {
             <div className="gap-4 flex mb-6">
               <Button
                 type="button"
-                onClick={() => {
-                  console.log("Form reset");
-                  reset();
-                }}
+                onClick={handleGoBack}
                 className="flex-1 hover:border-2 border-gray-400 font-semibold cursor-pointer hover:border-gray-600 bg-white text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting} // 👈 Add this
+                disabled={isSubmitting}
                 className="flex-1 bg-green-400 text-white font-semibold cursor-pointer hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? "Adding..." : "Add Product"}
+                {isSubmitting ? "Updating..." : "Update Product"}
               </Button>
             </div>
 
-            {/* Images */}
+            {/* Existing Images */}
+            {existingImages.length > 0 && (
+              <div className="bg-[#F9F9F9] p-6 rounded-2xl mb-6">
+                <h1 className="text-xl font-semibold pb-6">Current Images</h1>
+                <div className="grid grid-cols-2 gap-3">
+                  {existingImages.map((imageUrl, index) => (
+                    <div key={index} className="relative group">
+                      <Image
+                      width={200}
+                      height={200}
+                        src={imageUrl}
+                        alt={`Product image ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(imageUrl)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add New Images */}
             <div className="bg-[#F9F9F9] p-6 rounded-2xl">
-              <h1 className="text-xl font-semibold pb-6">Upload Images</h1>
+              <h1 className="text-xl font-semibold pb-6">Add New Images</h1>
               <div className="mb-6">
                 <MultipleImageUpload
                   onChange={(files) => {
-                    console.log("Images selected:", files);
+                    console.log("New images selected:", files);
                     setValue("images", files, { shouldValidate: true });
                   }}
                 />
@@ -480,7 +633,7 @@ try {
               </div>
 
               <div>
-                <h2 className="text-lg font-semibold mb-4">Category</h2>
+                <h2 className="text-lg font-semibold mb-4">Update Category</h2>
                 <CategoryDropdownSelector
                   onChange={(categories) => {
                     console.log("Categories selected:", categories);
@@ -500,8 +653,7 @@ try {
         </form>
       </main>
     </div>
-  
   );
-}
+};
 
-export default AddNewProducts;
+export default UpdateProduct;

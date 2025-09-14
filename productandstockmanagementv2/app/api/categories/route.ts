@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    console.log('Fetching categories...');
+    // console.log('Fetching categories...');
     const categories = await prisma.category.findMany({
       orderBy: { title: "asc" }
     });
     
-    console.log('Categories fetched:', categories.length);
+    // console.log('Categories fetched:', categories.length);
     return NextResponse.json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
