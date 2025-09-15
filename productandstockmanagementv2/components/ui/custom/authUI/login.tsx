@@ -31,7 +31,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
   const handleSubmit = async(e: React.FormEvent)=>{
     e.preventDefault();
-    console.log(formData);
+    // console.log(formData);
     
     setErrors(' ');
     setIsLoading(true);
