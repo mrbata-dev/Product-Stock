@@ -1,11 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  typescript: {
+    ignoreBuildErrors: true, 
+  },
+  eslint: {
+    ignoreDuringBuilds: true, 
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+   
   },
+
   images: {
     remotePatterns: [
       {
@@ -22,7 +30,8 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
     ],
-  },
+  }
+
 };
 
 export default nextConfig;

@@ -74,7 +74,7 @@ interface UpdateProductProps {
   initialData?: ProductData;
 }
 
-const UpdateProduct: React.FC<UpdateProductProps> = ({ initialData }) => {
+const UpdateProduct: React.FC<UpdateProductProps> = ({ initialData , productId}) => {
   const { id } = useParams<{ id: string }>();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(!initialData);
@@ -188,7 +188,7 @@ const UpdateProduct: React.FC<UpdateProductProps> = ({ initialData }) => {
     if (data.category && Array.isArray(data.category)) {
       const categoryIds = data.category.map(cat => cat.id);
       setValue("categoryIds", categoryIds);
-      console.log("Setting category IDs:", categoryIds);
+      // console.log("Setting category IDs:", categoryIds);
     }
     
     // Handle existing images - extract URLs and fix path if needed
@@ -198,14 +198,14 @@ const UpdateProduct: React.FC<UpdateProductProps> = ({ initialData }) => {
         return img.url.replace('product-images', 'uploads');
       });
       setExistingImages(imageUrls);
-      console.log("Setting existing images:", imageUrls);
+      // console.log("Setting existing images:", imageUrls);
     }
     
     setIsLoading(false);
   };
 
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
-    console.log("Form submitted with data:", data);
+    // console.log("Form submitted with data:", data);
     setIsSubmitting(true);
     const toastId = toast.loading("Updating product...");
 
@@ -219,7 +219,8 @@ const UpdateProduct: React.FC<UpdateProductProps> = ({ initialData }) => {
           imageFormData.append("images", file);
         });
 
-        console.log("Uploading new images to Supabase...");
+        // console.log("Uploading new images to Supabase...");
+        
         const uploadResult = await uploadImages(imageFormData);
 
         if (uploadResult.error) {
@@ -287,14 +288,7 @@ const UpdateProduct: React.FC<UpdateProductProps> = ({ initialData }) => {
     setExistingImages(prev => prev.filter(url => url !== imageUrl));
   };
 
-  // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-  //   if (e.target.files) {
-  //     const files = Array.from(e.target.files);
-  //     setValue('images', files);
-  //   }
-  // };
 
-  // Show loading state
   if (isLoading) {
     return (
       <div className="h-svh flex items-center justify-center">
