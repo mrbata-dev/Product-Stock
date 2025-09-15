@@ -198,7 +198,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                     aria-label="Full Name"
                     placeholder='John Doe'
                     className='w-full px-4 py-4 bg-gray-900/50 border border-gray-700 rounded-2xl 
-                             text-white placeholder-gray-500 outline-none
+                             text-black placeholder-gray-500 outline-none
                              focus:border-white focus:ring-2 focus:ring-white/20 focus:bg-gray-900/70
                              transition-all duration-300 ease-out
                              hover:border-gray-600'
@@ -225,7 +225,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 autoComplete="email"
                 placeholder='john@example.com'
                 className='w-full px-4 py-4 bg-gray-900/50 border border-gray-700 rounded-2xl 
-                         text-white placeholder-gray-500 outline-none
+                         text-black placeholder-gray-500 outline-none
                          focus:border-white focus:ring-2 focus:ring-white/20 focus:bg-gray-900/70
                          transition-all duration-300 ease-out
                          hover:border-gray-600'
@@ -250,7 +250,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 placeholder='••••••••'
                 className='w-full px-4 py-4 pr-12 bg-gray-900/50 border border-gray-700 rounded-2xl 
-                         text-white placeholder-gray-500 outline-none
+                         text-black placeholder-gray-500 outline-none
                          focus:border-white focus:ring-2 focus:ring-white/20 focus:bg-gray-900/70
                          transition-all duration-300 ease-out
                          hover:border-gray-600'
@@ -301,7 +301,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                     autoComplete="new-password"
                     placeholder='••••••••'
                     className='w-full px-4 py-4 pr-12 bg-gray-900/50 border border-gray-700 rounded-2xl 
-                             text-white placeholder-gray-500 outline-none
+                             text-black placeholder-gray-500 outline-none
                              focus:border-white focus:ring-2 focus:ring-white/20 focus:bg-gray-900/70
                              transition-all duration-300 ease-out
                              hover:border-gray-600'
