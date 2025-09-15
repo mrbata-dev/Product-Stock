@@ -103,7 +103,7 @@ const ProductsPage = () => {
   return (
     <div className="space-y-6 container mx-auto mt-4">
       <div className="border-gray-400 border-2 rounded-2xl p-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
           <HeaderContent title="All Product List" />
           <div className="flex items-center justify-center gap-6">
             <Button className="bg-green-400 hover:bg-green-500 transition-colors">

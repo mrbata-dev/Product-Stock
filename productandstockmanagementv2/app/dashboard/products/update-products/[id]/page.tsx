@@ -10,11 +10,28 @@ import CategoryDropdownSelector from "@/components/ui/custom/products/CategorySe
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
-
 import { useParams, useRouter } from "next/navigation";
 import { uploadImages } from "../../action";
 import Image from "next/image";
 import LoadingPage from "@/components/ui/custom/Loader";
+
+// Type definitions
+interface ProductImage {
+  id: string;
+  url: string;
+  productId?: string;
+}
+
+interface ProductCategory {
+  id: string;
+  title: string;
+}
+
+interface ProductSize {
+  id: string;
+  size: string;
+  productId: string;
+}
 
 type Inputs = {
   title: string;
@@ -34,30 +51,31 @@ type Inputs = {
   brand: string;
 };
 
-interface UpdateProductProps {
-  productId: string;
-  initialData?: {
-    id: string;
-    title: string;
-    description: string;
-    price: number;
-    discountPercentage: number;
-    stock: number;
-    sku: string;
-    sizes: string[];
-    gender: "male" | "female" | "unisex";
-    images: string[];
-    categoryIds: string[];
-    warrantyInformation: string;
-    returnPolicy: string;
-    shippingInformation: string;
-    brand: string;
-  };
+interface ProductData {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  discountPercentage: number;
+  stock: number;
+  sku: string;
+  sizes: ProductSize[];
+  gender: "male" | "female" | "unisex";
+  images: ProductImage[];
+  category: ProductCategory[];
+  warrantyInformation: string;
+  returnPolicy: string;
+  shippingInformation: string;
+  brand: string;
 }
 
-const UpdateProduct = ({  initialData }: UpdateProductProps) => {
-  const {id} = useParams();
+interface UpdateProductProps {
+  productId?: string;
+  initialData?: ProductData;
+}
 
+const UpdateProduct: React.FC<UpdateProductProps> = ({ initialData }) => {
+  const { id } = useParams<{ id: string }>();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(!initialData);
   const [existingImages, setExistingImages] = React.useState<string[]>([]);
@@ -121,13 +139,19 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
     }
   }, [id, initialData]);
 
-  const fetchProductData = async () => {
+  const fetchProductData = async (): Promise<void> => {
+    if (!id) {
+      toast.error('Product ID is required');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/products/${id}`);
       if (!response.ok) {
         throw new Error('Failed to fetch product data');
       }
-      const data = await response.json();
+      const data: ProductData = await response.json();
       populateForm(data);
     } catch (error) {
       console.error('Error fetching product:', error);
@@ -137,25 +161,8 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
     }
   };
 
-  interface ProductFormData {
-    title?: string;
-    description?: string;
-    price?: number;
-    discountPercentage?: number;
-    stock?: number;
-    sku?: string;
-    sizes?: string[];
-    gender?: "male" | "female" | "unisex";
-    images?: string[]; // Add this to handle images
-    categoryIds?: string[];
-    warrantyInformation?: string;
-    returnPolicy?: string;
-    shippingInformation?: string;
-    brand?: string;
-  }
-
-  const populateForm = (data: ProductFormData) => {
-    console.log("Populating form with data:", data); // Debug log
+  const populateForm = (data: ProductData): void => {
+    console.log("Populating form with data:", data);
     
     // Set form values
     setValue("title", data.title || "");
@@ -164,18 +171,34 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
     setValue("discount", data.discountPercentage || 0);
     setValue("stock", data.stock || 0);
     setValue("sku", data.sku || "");
-    setValue("sizes", data.sizes || []);
     setValue("gender", data.gender || "male");
-    setValue("categoryIds", data.categoryIds || []);
     setValue("warranty", data.warrantyInformation || "");
     setValue("returnPolicy", data.returnPolicy || "");
     setValue("shipping", data.shippingInformation || "");
     setValue("brand", data.brand || "");
     
-    // Set existing images - THIS WAS MISSING!
+    // Handle sizes - extract size strings from ProductSize objects
+    if (data.sizes && Array.isArray(data.sizes)) {
+      const sizeStrings = data.sizes.map(sizeObj => sizeObj.size);
+      setValue("sizes", sizeStrings);
+      console.log("Setting sizes:", sizeStrings);
+    }
+    
+    // Handle categories - extract category IDs
+    if (data.category && Array.isArray(data.category)) {
+      const categoryIds = data.category.map(cat => cat.id);
+      setValue("categoryIds", categoryIds);
+      console.log("Setting category IDs:", categoryIds);
+    }
+    
+    // Handle existing images - extract URLs and fix path if needed
     if (data.images && Array.isArray(data.images)) {
-      setExistingImages(data.images);
-      console.log("Setting existing images:", data.images); // Debug log
+      const imageUrls = data.images.map(img => {
+        // Fix image URL if it has the old path
+        return img.url.replace('product-images', 'uploads');
+      });
+      setExistingImages(imageUrls);
+      console.log("Setting existing images:", imageUrls);
     }
     
     setIsLoading(false);
@@ -213,14 +236,15 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
         ...data,
         images: imageUrls,
         price: Number(data.price),
-        discountPercentage: Number(data.discount),
+        discount: Number(data.discount), // Changed from discountPercentage
         stock: Number(data.stock),
         sizes: data.sizes,
         gender: data.gender,
         brand: data.brand,
-        warrantyInformation: data.warranty,
+        warranty: data.warranty, // Changed from warrantyInformation
         returnPolicy: data.returnPolicy,
-        shippingInformation: data.shipping,
+        shipping: data.shipping, // Changed from shippingInformation
+        categoryIds: data.categoryIds,
       };
 
       console.log('Sending JSON data to API:', productData);
@@ -232,7 +256,8 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
         },
         body: JSON.stringify(productData),
       });
-console.log(res);
+
+      console.log('API Response status:', res.status);
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -250,30 +275,31 @@ console.log(res);
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       toast.error(`Error updating product: ${errorMessage}`, { id: toastId });
     } finally {
-      setIsLoading(false)
       setIsSubmitting(false);
     }
   };
 
-  const handleGoBack = () => {
+  const handleGoBack = (): void => {
     router.back();
   };
 
-  const removeExistingImage = (imageUrl: string) => {
+  const removeExistingImage = (imageUrl: string): void => {
     setExistingImages(prev => prev.filter(url => url !== imageUrl));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setValue('images', files);
-    }
-  };
+  // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  //   if (e.target.files) {
+  //     const files = Array.from(e.target.files);
+  //     setValue('images', files);
+  //   }
+  // };
 
   // Show loading state
   if (isLoading) {
     return (
-      <LoadingPage/>
+      <div className="h-svh flex items-center justify-center">
+        <LoadingPage />
+      </div>
     );
   }
 
@@ -313,7 +339,7 @@ console.log(res);
                   Name Product *
                 </Label>
                 <input
-                  {...register("title")}
+                  {...register("title", { required: "Product title is required" })}
                   type="text"
                   placeholder="Enter product title"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -347,7 +373,7 @@ console.log(res);
                   Product Description *
                 </Label>
                 <Textarea
-                  {...register("description")}
+                  {...register("description", { required: "Description is required" })}
                   className="border-0 outline-0 focus:outline-0 focus:border-0 focus:ring-0 bg-[#EFEFEF]"
                   placeholder="Write the descriptions about the products..."
                 />
@@ -365,21 +391,34 @@ console.log(res);
                   <p className="text-sm font-light pb-2 text-gray-600">
                     Pick the available sizes
                   </p>
-                  <div className="flex gap-4 mt-4 flex-wrap">
-                    {["XS", "S", "M", "XL", "XXL"].map((size) => (
-                      <label key={size} className="cursor-pointer">
-                        <input
-                          type="checkbox"
-                          value={size}
-                          {...register("sizes")}
-                          className="peer hidden"
-                        />
-                        <span className="px-6 py-4 rounded-xl font-semibold bg-[#EFEFEF] shadow-sm peer-checked:bg-black peer-checked:text-white transition-all">
-                          {size === "S" ? "SM" : size}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                  <Controller
+                    name="sizes"
+                    control={control}
+                    render={({ field }) => (
+                      <div className="flex gap-4 mt-4 flex-wrap">
+                        {["XS", "S", "M", "XL", "XXL"].map((size) => (
+                          <label key={size} className="cursor-pointer">
+                            <input
+                              type="checkbox"
+                              value={size}
+                              checked={field.value.includes(size)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  field.onChange([...field.value, size]);
+                                } else {
+                                  field.onChange(field.value.filter(s => s !== size));
+                                }
+                              }}
+                              className="peer hidden"
+                            />
+                            <span className="px-6 py-4 rounded-xl font-semibold bg-[#EFEFEF] shadow-sm peer-checked:bg-black peer-checked:text-white transition-all">
+                              {size === "S" ? "SM" : size}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  />
                 </div>
 
                 <div className="mt-4 flex-1">
@@ -390,6 +429,7 @@ console.log(res);
                   <Controller
                     name="gender"
                     control={control}
+                    rules={{ required: "Gender is required" }}
                     render={({ field }) => (
                       <RadioGroup
                         value={field.value}
@@ -433,6 +473,7 @@ console.log(res);
                   </Label>
                   <input
                     {...register("price", {
+                      required: "Price is required",
                       min: { value: 0, message: "Price must be positive" },
                     })}
                     type="number"
@@ -450,6 +491,7 @@ console.log(res);
                   <Label className="text-md pb-2 font-semibold">Stock *</Label>
                   <input
                     {...register("stock", {
+                      required: "Stock is required",
                       min: { value: 0, message: "Stock must be positive" },
                     })}
                     type="number"
@@ -491,7 +533,7 @@ console.log(res);
                 <div className="flex-1">
                   <Label className="text-md pb-2 font-semibold">Brand *</Label>
                   <input
-                    {...register("brand")}
+                    {...register("brand", { required: "Brand is required" })}
                     type="text"
                     placeholder="Enter brand name"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -522,18 +564,13 @@ console.log(res);
                     placeholder="e.g., 1 year warranty"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  {errors.warranty && (
-                    <span className="text-red-500 text-sm">
-                      {errors.warranty.message}
-                    </span>
-                  )}
                 </div>
                 <div className="flex-1">
                   <Label className="text-md pb-2 font-semibold">
                     Shipping *
                   </Label>
                   <input
-                    {...register("shipping")}
+                    {...register("shipping", { required: "Shipping info is required" })}
                     type="text"
                     placeholder="e.g., Free shipping"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -552,7 +589,7 @@ console.log(res);
                     Return Policy *
                   </Label>
                   <input
-                    {...register("returnPolicy")}
+                    {...register("returnPolicy", { required: "Return policy is required" })}
                     type="text"
                     placeholder="e.g., 30 days return policy"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -599,6 +636,11 @@ console.log(res);
                         src={imageUrl}
                         alt={`Product image ${index + 1}`}
                         className="w-full h-24 object-cover rounded-lg"
+                        onError={(e) => {
+                          console.error(`Failed to load image: ${imageUrl}`);
+                          // Optional: Set a placeholder image
+                          // e.currentTarget.src = '/placeholder-image.jpg';
+                        }}
                       />
                       <button
                         type="button"
@@ -633,7 +675,7 @@ console.log(res);
               <div>
                 <h2 className="text-lg font-semibold mb-4">Update Category</h2>
                 <CategoryDropdownSelector
-                 
+                  selectedCategories={selectedCategoryIds}
                   onChange={(categories) => {
                     console.log("Categories selected:", categories);
                     setValue("categoryIds", categories, {

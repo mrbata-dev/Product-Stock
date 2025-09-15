@@ -30,7 +30,7 @@ const RecentAddedProduct = () => {
       try {
         setLoading(true);
         // We set limit to 4 to only get 4 recent products
-        const response = await fetch('/api/products/getAllProducts?sort=latest&limit=4');
+        const response = await fetch('/api/products/getAllProducts?sort=latest&limit=5');
         if (!response.ok) {
           throw new Error('Failed to fetch products');
         }

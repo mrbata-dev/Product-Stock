@@ -50,11 +50,11 @@ const sideBarItems = [
   //   href: '/dashboard/warehouses',
   //   icon: '🏭'
   // },
-  {
-    title: 'Settings',
-    href: '/settings',
-    icon: '⚙️'
-  }
+  // {
+  //   title: 'Settings',
+  //   href: '/settings',
+  //   icon: '⚙️'
+  // }
 ]
 
 const SideBar = () => {
@@ -201,7 +201,7 @@ const SideBar = () => {
 
     <div className="flex flex-col">
       <span className="font-medium text-white text-sm">
-        {session?.user?.name || userLoading()}
+        {session?.user?.name || "loading" }
       </span>
       <span className="text-gray-400 text-xs">
         {session?.user?.email || ""}
