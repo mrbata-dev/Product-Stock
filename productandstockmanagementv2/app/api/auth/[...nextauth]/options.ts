@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import GoogleProvider from "next-auth/providers/google";
-import { NextAuthOptions } from "next-auth";
+// import { NextAuthOptions } from "next-auth";
 
-export const authOptions: NextAuthOptions = {
+
+export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
@@ -43,12 +44,21 @@ export const authOptions: NextAuthOptions = {
           if (!user.isActive) {
             throw new Error("Your account has been deactivated. Please contact support");
           }
+// Verify password
+if (!user.password) {
+  throw new Error("User does not have a password set");
+}
 
-          // Verify password
-          const isPasswordCorrect = await bcrypt.compare(
-            credentials.password,
-            user.password
-          );
+const isPasswordCorrect = await bcrypt.compare(
+  credentials.password,
+  user.password
+);
+
+if (!isPasswordCorrect) {
+  throw new Error("Invalid password");
+}
+
+      
 
           if (!isPasswordCorrect) {
             throw new Error("Invalid password");
@@ -79,7 +89,7 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async signIn({ account, profile, user }) {
+    async signIn({ account, profile }) {
       try {
         if (account?.provider === 'google') {
           // Validate Google email

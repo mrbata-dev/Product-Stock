@@ -4,8 +4,10 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
+// import { Notification } from '../../../../lib/generated/prisma/index';
 
-// Helper function to extract ID from params
+
+
 async function getIdFromParams(params: Promise<{ id: string }>) {
   const resolvedParams = await params;
   return resolvedParams.id;
@@ -151,13 +153,13 @@ export async function PUT(
     }
 
     // Check product ownership
-    const existing = await prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (existing?.userId !== session.user.id) {
-      return NextResponse.json({ details: "Unauthorized" }, { status: 401 });
-    }
+    // const existing = await prisma.product.findUnique({
+    //   where: { id },
+    // });
+// !== session.user.id
+    // if (existing?.userId ) {
+    //   return NextResponse.json({ details: "Unauthorized" }, { status: 401 });
+    // }
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.productSize.deleteMany({ where: { productId: id } });
@@ -201,6 +203,27 @@ export async function PUT(
         include: { category: true, sizes: true, images: true },
       });
     });
+
+    if (updated.stock > 5) {
+      // If stock is now healthy, delete all notifications for this product.
+      await prisma.notification.deleteMany({
+        where: { productId: updated.id },
+      });
+    } else if (updated.stock <= 5 && updated.stock >= 0) {
+
+      const existingNotification = await prisma.notification.findFirst({
+        where: { productId: updated.id, read: false },
+      });
+
+      if (!existingNotification) {
+        await prisma.notification.create({
+          data: {
+            message: `Stock for ${updated.title} is critically low at ${updated.stock} units.`,
+            productId: updated.id,
+          },
+        });
+      }
+    }
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {

@@ -14,6 +14,7 @@ import toast from "react-hot-toast";
 import { useParams, useRouter } from "next/navigation";
 import { uploadImages } from "../../action";
 import Image from "next/image";
+import LoadingPage from "@/components/ui/custom/Loader";
 
 type Inputs = {
   title: string;
@@ -56,7 +57,7 @@ interface UpdateProductProps {
 
 const UpdateProduct = ({  initialData }: UpdateProductProps) => {
   const {id} = useParams();
-  console.log(id);
+
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(!initialData);
   const [existingImages, setExistingImages] = React.useState<string[]>([]);
@@ -65,11 +66,9 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
     control,
-    getValues,
-    reset,
+    watch,
     formState: { errors },
   } = useForm<Inputs>({
     defaultValues: {
@@ -91,15 +90,18 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
     },
   });
 
+  // Watch categoryIds to pass to CategoryDropdownSelector
+  const selectedCategoryIds = watch("categoryIds");
+
   // Register the file input manually since it's a custom component
   const { ref, ...rest } = register('images', {
     validate: {
       fileSize: (files) => {
-        if (!files || files.length === 0) return true; // No file is allowed
+        if (!files || files.length === 0) return true;
         return files.every(file => file.size <= 5 * 1024 * 1024) || 'Max file size is 5MB';
       },
       fileType: (files) => {
-        if (!files || files.length === 0) return true; // No file is allowed
+        if (!files || files.length === 0) return true;
         const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
         return files.every(file => allowedTypes.includes(file.type)) || 'Only JPEG, PNG, and WebP images are allowed';
       },
@@ -144,6 +146,7 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
     sku?: string;
     sizes?: string[];
     gender?: "male" | "female" | "unisex";
+    images?: string[]; // Add this to handle images
     categoryIds?: string[];
     warrantyInformation?: string;
     returnPolicy?: string;
@@ -152,6 +155,8 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
   }
 
   const populateForm = (data: ProductFormData) => {
+    console.log("Populating form with data:", data); // Debug log
+    
     // Set form values
     setValue("title", data.title || "");
     setValue("description", data.description || "");
@@ -167,8 +172,12 @@ const UpdateProduct = ({  initialData }: UpdateProductProps) => {
     setValue("shipping", data.shippingInformation || "");
     setValue("brand", data.brand || "");
     
-    // Set existing images
-    setExistingImages(data.images || []);
+    // Set existing images - THIS WAS MISSING!
+    if (data.images && Array.isArray(data.images)) {
+      setExistingImages(data.images);
+      console.log("Setting existing images:", data.images); // Debug log
+    }
+    
     setIsLoading(false);
   };
 
@@ -261,18 +270,12 @@ console.log(res);
     }
   };
 
-  // if (isLoading) {
-  //   return (
-  //     <div className="container mx-auto py-8">
-  //       <div className="flex items-center justify-center min-h-[400px]">
-  //         <div className="text-center">
-  //           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-500 mx-auto"></div>
-  //           <p className="mt-4 text-gray-600">Loading product data...</p>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  // Show loading state
+  if (isLoading) {
+    return (
+      <LoadingPage/>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -387,7 +390,6 @@ console.log(res);
                   <Controller
                     name="gender"
                     control={control}
-                    // rules={{ required: "Gender selection is required" }}
                     render={({ field }) => (
                       <RadioGroup
                         value={field.value}
@@ -431,7 +433,6 @@ console.log(res);
                   </Label>
                   <input
                     {...register("price", {
-                      // required: "Price is required",
                       min: { value: 0, message: "Price must be positive" },
                     })}
                     type="number"
@@ -449,7 +450,6 @@ console.log(res);
                   <Label className="text-md pb-2 font-semibold">Stock *</Label>
                   <input
                     {...register("stock", {
-                      // required: "Stock is required",
                       min: { value: 0, message: "Stock must be positive" },
                     })}
                     type="number"
@@ -533,9 +533,7 @@ console.log(res);
                     Shipping *
                   </Label>
                   <input
-                    {...register("shipping", {
-                      // required: "Shipping information is required",
-                    })}
+                    {...register("shipping")}
                     type="text"
                     placeholder="e.g., Free shipping"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -596,8 +594,8 @@ console.log(res);
                   {existingImages.map((imageUrl, index) => (
                     <div key={index} className="relative group">
                       <Image
-                      width={200}
-                      height={200}
+                        width={200}
+                        height={200}
                         src={imageUrl}
                         alt={`Product image ${index + 1}`}
                         className="w-full h-24 object-cover rounded-lg"
@@ -635,6 +633,7 @@ console.log(res);
               <div>
                 <h2 className="text-lg font-semibold mb-4">Update Category</h2>
                 <CategoryDropdownSelector
+                 
                   onChange={(categories) => {
                     console.log("Categories selected:", categories);
                     setValue("categoryIds", categories, {

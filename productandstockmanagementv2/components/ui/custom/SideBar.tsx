@@ -40,11 +40,11 @@ const sideBarItems = [
   //   href: '/dashboard/suppliers',
   //   icon: '🏪'
   // },
-  {
-    title: 'Categories',
-    href: '/dashboard/categories',
-    icon: '🏷️'
-  },
+  // {
+  //   title: 'Categories',
+  //   href: '/dashboard/categories',
+  //   icon: '🏷️'
+  // },
   // {
   //   title: 'Warehouses',
   //   href: '/dashboard/warehouses',
@@ -199,14 +199,14 @@ const SideBar = () => {
     </div>
   )}
 
-  <div className="flex flex-col">
-    <span className="font-medium text-white text-sm">
-      {session?.user?.name || "Loading..."}
-    </span>
-    <span className="text-gray-400 text-xs">
-      {session?.user?.email || ""}
-    </span>
-  </div>
+    <div className="flex flex-col">
+      <span className="font-medium text-white text-sm">
+        {session?.user?.name || userLoading()}
+      </span>
+      <span className="text-gray-400 text-xs">
+        {session?.user?.email || ""}
+      </span>
+    </div>
 </div>
 
 <Button
