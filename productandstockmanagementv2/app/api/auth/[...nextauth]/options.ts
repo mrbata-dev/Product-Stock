@@ -74,8 +74,7 @@ if (!isPasswordCorrect) {
 
         } catch (error) {
           console.error('Authentication error:', error);
-          // Return null to indicate authentication failure
-          // The error message will be handled by the pages/signIn callback
+   
           return null;
         }
       },

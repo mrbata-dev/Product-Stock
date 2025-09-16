@@ -28,11 +28,11 @@ export async function createProduct() {
       },
 
       // add stock
-      stock: {
-        create: [
-          { quantity: 50 },
-        ],
-      },
+      // stock: {
+      //   create: [
+      //     { quantity: 50 },
+      //   ],
+      // },
 
       // add images
       images: {
@@ -51,7 +51,7 @@ export async function createProduct() {
       },
     },
     include: {
-      stock: true,
+      // stock: true,
       images: true,
       sizes: true,
       category: true,
@@ -60,4 +60,44 @@ export async function createProduct() {
   });
 
   return product;
+}
+
+export interface ProductImage {
+  id: string;
+  url: string;
+  alt?: string;
+}
+
+export interface ProductCategory {
+  id: string;
+  title: string;
+  slug?: string;
+}
+
+export interface Product {
+  id: string;
+  title: string;
+  price: number;
+  category: ProductCategory[];
+  stock: number;
+  images: ProductImage[];
+  slug: string;
+  sku: string;
+  discountPercentage: number;
+  createdAt: Date; // Fixed typo: createAt -> createdAt
+  updatedAt: Date; // Fixed typo: updateAt -> updatedAt
+}
+
+export interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  totalCount: number;
+  pageSize?: number;
+}
+
+export interface ProductsResponse {
+  products: Product[];
+  pagination: PaginationInfo;
 }

@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Please enter a valid email address" },
         { status: 400 }
-      );
+      ); 
     }
 
     // Password validation

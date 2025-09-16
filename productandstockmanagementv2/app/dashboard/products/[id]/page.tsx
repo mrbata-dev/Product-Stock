@@ -1,61 +1,85 @@
-'use client'
-import ProductDetailsPage from '@/components/ui/custom/products/ProductDetailsPage';
-import { useParams, useRouter } from 'next/navigation'
-import React, { useEffect, useState } from 'react'
-import { Product } from '@/types/product';
 
-const SingleProductPages = () => {
+import { Metadata } from 'next'
+import ProductDetailsPage from '@/components/ui/custom/products/ProductDetailsPage'
+import { Product } from '@/types/product'
+import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
+import LoadingPage from '@/components/ui/custom/Loader'
 
-    const params = useParams();
-    // const router = useRouter();
-    const [product, setProduct] = useState<Product | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+// Generate metadata for SEO
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: { id: string } 
+}): Promise<Metadata> {
+  try {
+    const product = await fetchProduct(params.id)
+    
+    return {
+      title: `${product.title} `,
+      description: product.description,
+      openGraph: {
+        title: product.title,
+        description: product.description,
+        images: product.images?.[0] ? [product.images[0]] : [],
+      },
+    }
+  } catch {
+    return {
+      title: 'Product Not Found',
+      description: 'The requested product could not be found.',
+    }
+  }
+}
+
+// Server-side data fetching
+async function fetchProduct(id: string): Promise<Product> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/products/${id}`,
+    { 
+      next: { 
+        revalidate: 60, 
+        tags: [`product-${id}`] 
+      } 
+    }
+  )
   
-    useEffect(() => {
-      const fetchProduct = async () => {
-        try {
-          setLoading(true);
-          const response = await fetch(`/api/products/${params.id}`);
-          
-          if (!response.ok) {
-            throw new Error('Failed to fetch product');
-          }
-          
-          const data = await response.json();
-          setProduct(data);
-        } catch (err) {
-          console.error('Error fetching product:', err);
-          setError('Failed to load product details');
-        } finally {
-          setLoading(false);
-        }
-      };
+  if (!response.ok) {
+    throw new Error('Failed to fetch product')
+  }
   
-      if (params.id) {
-        fetchProduct();
-      }
-    }, [params.id]);
-//  API 
+  return response.json()
+}
 
- console.log(product);
- 
-return (
-    <div className='flex items-center justify-center min-h-screen'>
-      {loading && (
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gray-300 rounded-full animate-pulse mx-auto mb-4"></div>
-          <p className="text-gray-500 text-lg">Loading product...</p>
-        </div>
-      )}
-      {error && (
-        <div className="text-center text-red-500">
-          <p>{error}</p>
-        </div>
-      )}
-      {!loading && !error && <ProductDetailsPage product={product}/>}
+// Loading component
+function ProductLoading() {
+  return (
+    <div className='h-svh flex items-center justify-center'>
+      <LoadingPage/>
     </div>
   )
 }
 
-export default SingleProductPages
+// Main page component (Server Component)
+export default async function SingleProductPage({ 
+  params 
+}: { 
+  params: { id: string } 
+}) {
+  
+  try {
+    const product = await fetchProduct(params.id)
+    
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Suspense fallback={<ProductLoading />}>
+          <ProductDetailsPage product={product} />
+        </Suspense>
+      </div>
+    )
+  } catch (error) {
+    console.error('Error loading product:', error)
+    notFound() // This will show your 404 page
+  }
+}
+

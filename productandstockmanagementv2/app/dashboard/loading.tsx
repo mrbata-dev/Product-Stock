@@ -1,9 +1,10 @@
+import LoadingPage from '@/components/ui/custom/Loader'
 import React from 'react'
 
 const loading = () => {
   return (
-    <div>
-      <h1>loader..</h1>
+    <div className='h-svh flex items-center justify-center'>
+      <LoadingPage/>
     </div>
   )
 }

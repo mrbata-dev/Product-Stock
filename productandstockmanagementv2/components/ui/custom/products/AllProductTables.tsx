@@ -8,7 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from "../../table";
-import Image from "next/image";
 import { Edit, Eye, Trash } from "lucide-react";
 import clsx from "clsx";
 import {
@@ -21,7 +20,6 @@ import {
   PaginationPrevious,
 } from "../../pagination";
 import Link from "next/link";
-import toast from "react-hot-toast";
 
 type Product = {
   id: string;
@@ -35,6 +33,7 @@ type Product = {
   category: { title: string }[];
   createAt: Date;
   updateAt: Date;
+  isDeleting?: boolean;
 };
 
 type PaginationInfo = {
@@ -48,11 +47,13 @@ type PaginationInfo = {
 interface AllProductTablesProps {
   products: Product[];
   pagination: PaginationInfo;
+  onDelete?: (product: Product) => void; // Add this prop
 }
 
 const AllProductTables: React.FC<AllProductTablesProps> = ({
   products,
   pagination,
+  onDelete, // Receive the delete handler from parent
 }) => {
   // Generate pagination links
   const generatePaginationLinks = () => {
@@ -88,129 +89,138 @@ const AllProductTables: React.FC<AllProductTablesProps> = ({
   };
 
   const paginationLinks = generatePaginationLinks();
-  // products.forEach(product => {
-  //   console.log(product.slug, product.sku);
-  // });
 
-
-  // Deleted Products
-  const deletedProducts = async (id: string) => {
-    try {
-      const res = await fetch(`/api/products/${id}`, {
-        method: 'DELETE',
-      });
-  
-      if (!res.ok) {
-        throw new Error('Failed to delete product');
-      }
-  
-      toast.success('Product deleted successfully');
- 
-  
-    } catch (error) {
-      toast.error('Unable to delete product!');
-      console.log(error);
-    }
-  };
-  
   return (
-    <div className="py-8">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="tableHead">Product Name</TableHead>
-            <TableHead className="tableHead">Product Image</TableHead>
-            <TableHead className="tableHead">Price</TableHead>
-            <TableHead className="tableHead">Discount Percentage</TableHead>
-            <TableHead className="tableHead">Stock</TableHead>
-            <TableHead className="tableHead">Category</TableHead>
-            <TableHead className="tableHead">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {products.length > 0 ? (
-            products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>{product.title}</TableCell>
-                <TableCell>
-                  {product.images && product.images.length > 0 ? (
-                    <Image
-                      src={product.images[0].url}
-                      alt={product.title}
-                      width={80}
-                      height={80}
-                      loading="lazy"
-                      className="rounded-md object-cover"
-                    />
-                  ) : (
-                    <div className="w-[100px] h-[100px] bg-gray-200 rounded-md flex items-center justify-center">
-                      No Image
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>Rs.{product.price.toFixed(2)}</TableCell>
-                <TableCell>{product.discountPercentage}%</TableCell>
-                <TableCell>
-                  <span
-                    className={clsx(
-                      "px-4 py-2 rounded-2xl font-semibold",
-                      product.stock < 5
-                        ? "bg-red-200 text-red-700"
-                        : product.stock <= 10
-                        ? "bg-yellow-200 text-yellow-700"
-                        : "bg-green-200 text-green-700"
+    <div className="py-4">
+      {/* Clean table design without excessive colors */}
+      <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50 border-b border-gray-200">
+              <TableHead className="text-xs font-medium text-gray-500 uppercase tracking-wider">Product</TableHead>
+              <TableHead className="text-xs font-medium text-gray-500 uppercase tracking-wider">Image</TableHead>
+              <TableHead className="text-xs font-medium text-gray-500 uppercase tracking-wider">Price</TableHead>
+              <TableHead className="text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</TableHead>
+              <TableHead className="text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</TableHead>
+              <TableHead className="text-xs font-medium text-gray-500 uppercase tracking-wider">Category</TableHead>
+              <TableHead className="text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {products.length > 0 ? (
+              products.map((product) => (
+                <TableRow 
+                  key={product.id} 
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                    product.isDeleting ? 'opacity-50 pointer-events-none' : ''
+                  }`}
+                >
+                  <TableCell className="font-medium text-gray-900">
+                    {product.title}
+                  </TableCell>
+                  <TableCell>
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={product.images[0].url}
+                        alt={product.title}
+                        width={64}
+                        height={64}
+                        className="rounded-lg object-cover w-16 h-16 border border-gray-200"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
+                        No Image
+                      </div>
                     )}
-                  >
-                    {product.stock}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {product.category && product.category.length > 0
-                    ? product.category[0].title
-                    : "No Category"}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <span className="bg-gray-400/30 rounded-md py-1 px-2 cursor-pointer hover:bg-gray-400/50 transition-colors">
+                  </TableCell>
+                  <TableCell className="text-gray-900">
+                    ${product.price.toFixed(2)}
+                  </TableCell>
+                  <TableCell>
+                    {product.discountPercentage > 0 ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {product.discountPercentage}%
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={clsx(
+                        "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium",
+                        product.stock === 0
+                          ? "bg-red-100 text-red-800"
+                          : product.stock <= 5
+                          ? "bg-yellow-100 text-yellow-800"
+                          : product.stock <= 10
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-green-100 text-green-800"
+                      )}
+                    >
+                      {product.stock} {product.stock === 1 ? 'unit' : 'units'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-gray-600">
+                    {product.category && product.category.length > 0
+                      ? product.category.map(cat => cat.title).join(', ')
+                      : "Uncategorized"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 justify-end">
                       <Link
                         href={`/dashboard/products/${product.id}`}
+                        className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="View Product"
                       >
                         <Eye size={16} />
                       </Link>
-                    </span>
-                    <span className="bg-blue-400/30 rounded-md py-1 px-2 text-blue-600 cursor-pointer hover:bg-blue-400/50 transition-colors">
-                     <Link 
-                     href={`/dashboard/products/update-products/${product.id}`}
-                     > <Edit size={16} /></Link>
-                    </span>
-                    <span className="bg-red-400/30 rounded-md py-1 px-2 text-red-600 cursor-pointer hover:bg-red-400/50 transition-colors"
-                    onClick={() => deletedProducts(product.id)}
-                    >
-                      <Trash size={16} />
-                    </span>
+                      <Link 
+                        href={`/dashboard/products/update-products/${product.id}`}
+                        className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit Product"
+                      >
+                        <Edit size={16} />
+                      </Link>
+                      <button
+                        onClick={() => onDelete && onDelete(product)}
+                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Product"
+                        disabled={product.isDeleting}
+                      >
+                        <Trash size={16} />
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12 text-gray-500">
+                  <div className="flex flex-col items-center">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <Eye className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-lg font-medium text-gray-900 mb-1">No products found</p>
+                    <p className="text-sm text-gray-500">Try adjusting your filters or add a new product</p>
                   </div>
                 </TableCell>
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                No products found
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-      {/* Pagination */}
+      {/* Cleaner Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col items-center space-y-4">
           <Pagination>
             <PaginationContent>
               {pagination.hasPrevPage && (
                 <PaginationItem>
                   <PaginationPrevious
                     href={`?page=${pagination.currentPage - 1}`}
+                    className="hover:bg-gray-100"
                   />
                 </PaginationItem>
               )}
@@ -223,6 +233,7 @@ const AllProductTables: React.FC<AllProductTablesProps> = ({
                     <PaginationLink
                       href={`?page=${link}`}
                       isActive={link === pagination.currentPage}
+                      className={link === pagination.currentPage ? 'bg-blue-600 text-white hover:bg-blue-700' : 'hover:bg-gray-100'}
                     >
                       {link}
                     </PaginationLink>
@@ -234,16 +245,17 @@ const AllProductTables: React.FC<AllProductTablesProps> = ({
                 <PaginationItem>
                   <PaginationNext
                     href={`?page=${pagination.currentPage + 1}`}
+                    className="hover:bg-gray-100"
                   />
                 </PaginationItem>
               )}
             </PaginationContent>
           </Pagination>
 
-          <div className="text-center text-sm text-gray-600 mt-4">
-            Showing {(pagination.currentPage - 1) * 10 + 1} to{" "}
-            {Math.min(pagination.currentPage * 10, pagination.totalCount)} of{" "}
-            {pagination.totalCount} products
+          <div className="text-sm text-gray-600">
+            Showing <span className="font-medium">{(pagination.currentPage - 1) * 10 + 1}</span> to{" "}
+            <span className="font-medium">{Math.min(pagination.currentPage * 10, pagination.totalCount)}</span> of{" "}
+            <span className="font-medium">{pagination.totalCount}</span> products
           </div>
         </div>
       )}

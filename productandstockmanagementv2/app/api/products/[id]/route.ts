@@ -4,8 +4,28 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
+import { z } from 'zod';
 
-// Type definitions
+// ============ VALIDATION SCHEMAS ============
+const UpdateProductSchema = z.object({
+  title: z.string().min(1, "Title is required").max(255),
+  description: z.string().min(1, "Description is required"),
+  price: z.number().positive("Price must be positive"),
+  discount: z.number().min(0).max(100).default(0),
+  stock: z.number().int().min(0, "Stock cannot be negative"),
+  sizes: z.array(z.string()).default([]),
+  gender: z.enum(["male", "female", "unisex"]),
+  brand: z.string().min(1),
+  warranty: z.string().optional(),
+  returnPolicy: z.string().optional(),
+  shipping: z.string().optional(),
+  categoryIds: z.array(z.string()).min(1, "At least one category is required"),
+  images: z.array(z.string()).max(5, "Maximum 5 images allowed").default([]),
+});
+
+// ============ TYPE DEFINITIONS ============
+type UpdateProductData = z.infer<typeof UpdateProductSchema>;
+
 interface ProductImage {
   id: string;
   url: string;
@@ -23,48 +43,127 @@ interface ProductSize {
   productId: string;
 }
 
-interface UpdateProductData {
-  title: string;
-  description: string;
-  price: number;
-  discount: number;
-  stock: number;
-  sizes: string[];
-  gender: "male" | "female" | "unisex";
-  brand: string;
-  warranty: string;
-  returnPolicy: string;
-  shipping: string;
-  categoryIds: string[];
-  images: string[];
-}
-
+// ============ HELPER FUNCTIONS ============
 async function getIdFromParams(params: Promise<{ id: string }>): Promise<string> {
   const resolvedParams = await params;
   return resolvedParams.id;
 }
 
+function createSupabaseClient() {
+  // Check environment variables
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
+    throw new Error('Missing Supabase environment variables');
+  }
+
+  return async () => {
+    const cookieStore = await cookies();
+    return createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!,
+      {
+        cookies: {
+          getAll: () => cookieStore.getAll().map(c => ({ name: c.name, value: c.value })),
+          setAll: (cookiesToSet) =>
+            cookiesToSet.forEach(c => cookieStore.set(c.name, c.value, { httpOnly: true })),
+        },
+      }
+    );
+  };
+}
+
+async function deleteImagesFromStorage(images: ProductImage[]) {
+  const getSupabase = createSupabaseClient();
+  const supabase = await getSupabase();
+  const errors: string[] = [];
+
+  for (const image of images) {
+    if (image.url) {
+      try {
+        // Extract the path from the URL
+        const urlParts = image.url.split('/');
+        const path = urlParts.slice(-2).join('/');
+        
+        const { error: deleteError } = await supabase.storage
+          .from('uploads')
+          .remove([path]);
+
+        if (deleteError) {
+          errors.push(`Failed to delete image ${path}: ${deleteError.message}`);
+          console.warn('Failed to delete image from storage:', deleteError);
+        }
+      } catch (error) {
+        errors.push(`Error processing image ${image.url}`);
+        console.error('Error deleting image:', error);
+      }
+    }
+  }
+
+  return errors;
+}
+
+async function handleStockNotification(product: any) {
+  try {
+    if (product.stock > 5) {
+      // Stock is healthy, delete notifications
+      await prisma.notification.deleteMany({
+        where: { productId: product.id },
+      });
+    } else if (product.stock <= 5 && product.stock >= 0) {
+      // Check for existing notification
+      const existingNotification = await prisma.notification.findFirst({
+        where: { productId: product.id, read: false },
+      });
+
+      if (!existingNotification) {
+        await prisma.notification.create({
+          data: {
+            message: `Stock for ${product.title} is critically low at ${product.stock} units.`,
+            productId: product.id,
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error handling stock notification:', error);
+    // Don't throw - this is non-critical
+  }
+}
+
+// ============ API ROUTES ============
+
+// GET /api/products/[id] - Fetch single product
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = await getIdFromParams(params);
-  
   try {
+    const id = await getIdFromParams(params);
+    
+    // Validate ID exists (removed format check - Prisma handles ID validation)
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Product ID is required' }, 
+        { status: 400 }
+      );
+    }
+
     const product = await prisma.product.findUnique({
       where: { id },
       include: { 
         images: true, 
         category: true,
-        sizes: true  // Include sizes in the response
+        sizes: true
       },
     });
     
     if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Product not found' }, 
+        { status: 404 }
+      );
     }
 
-    // Replace image URLs to fix path issues
+    // Fix image URLs if needed
     const fixedProduct = {
       ...product,
       images: product.images.map(img => ({
@@ -76,232 +175,283 @@ export async function GET(
     return NextResponse.json(fixedProduct);
   } catch (error) {
     console.error('Error fetching product:', error);
-    return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 });
+    
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { error: 'Failed to fetch product', details: error.message }, 
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: 'Failed to fetch product' }, 
+      { status: 500 }
+    );
   }
 }
 
+// DELETE /api/products/[id] - Delete product
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = await getIdFromParams(params);
-
+  let storageErrors: string[] = [];
+  
   try {
-    // Check if environment variables exist
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
-      console.error('Missing Supabase environment variables');
+    const id = await getIdFromParams(params);
+    
+    // Validate ID exists (removed format check - Prisma handles ID validation)
+    if (!id) {
       return NextResponse.json(
-        { error: 'Server configuration error' }, 
-        { status: 500 }
+        { error: 'Product ID is required' }, 
+        { status: 400 }
       );
     }
 
-    // Await cookies first
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll().map(c => ({ name: c.name, value: c.value })),
-          setAll: (cookiesToSet) =>
-            cookiesToSet.forEach(c => cookieStore.set(c.name, c.value, { httpOnly: true })),
-        },
-      }
-    );
-
-    // Find product with images
+    // Find product with all relations
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { images: true },
+      include: { 
+        images: true,
+        sizes: true,
+        category: true 
+      },
     });
 
     if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Product not found' }, 
+        { status: 404 }
+      );
     }
 
-    // Delete images from Supabase storage
-    for (const image of product.images) {
-      if (image.url) {
-        const path = image.url.split('/').slice(-2).join('/');
-        const { error: deleteError } = await supabase.storage
-          .from('uploads')
-          .remove([path]);
+    // Start transaction for database operations
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete related notifications first
+      await tx.notification.deleteMany({
+        where: { productId: id }
+      });
 
-        if (deleteError) {
-          console.warn('Failed to delete image from storage:', deleteError);
-          return NextResponse.json(
-            { error: 'Failed to delete image from storage' }, 
-            { status: 500 }
-          );
-        }
-      }
+      // 2. Delete sizes
+      await tx.productSize.deleteMany({
+        where: { productId: id }
+      });
+
+      // 3. Delete images from database
+      await tx.image.deleteMany({
+        where: { productId: id }
+      });
+
+      // 4. Finally delete the product
+      await tx.product.delete({
+        where: { id }
+      });
+    });
+
+    // After successful DB deletion, try to delete from storage
+    // This is done outside transaction as it's external service
+    if (product.images.length > 0) {
+      storageErrors = await deleteImagesFromStorage(product.images);
     }
 
-    // Delete images from DB
-    await prisma.image.deleteMany({ where: { productId: id } });
-    // Delete product
-    await prisma.product.delete({ where: { id } });
+    // Return success with any storage warnings
+    const response: any = {
+      message: 'Product deleted successfully',
+      productId: id,
+      productTitle: product.title
+    };
 
-    return NextResponse.json({ message: 'Product deleted successfully' }, { status: 200 });
+    if (storageErrors.length > 0) {
+      response.warnings = storageErrors;
+      console.warn('Storage cleanup warnings:', storageErrors);
+    }
+
+    return NextResponse.json(response, { status: 200 });
+    
   } catch (error) {
     console.error('Delete product error:', error);
-    return NextResponse.json({ error: 'Unable to delete product' }, { status: 500 });
+    
+    // Handle Prisma-specific errors
+    if (error instanceof Error) {
+      if (error.message.includes('Foreign key constraint')) {
+        return NextResponse.json(
+          { 
+            error: 'Cannot delete product', 
+            details: 'This product has related records that must be deleted first'
+          }, 
+          { status: 409 }
+        );
+      }
+      
+      return NextResponse.json(
+        { 
+          error: 'Failed to delete product', 
+          details: error.message 
+        }, 
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: 'Unable to delete product' }, 
+      { status: 500 }
+    );
   }
 }
 
+// PUT /api/products/[id] - Update product
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = await getIdFromParams(params);
-
   try {
+    // Check authentication
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
-      return NextResponse.json({ details: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized', details: 'Please login to continue' }, 
+        { status: 401 }
+      );
     }
 
-    const body: UpdateProductData = await req.json();
-    const {
-      title,
-      description,
-      price,
-      discount,
-      stock,
-      sizes,
-      gender,
-      brand,
-      warranty,
-      returnPolicy,
-      shipping,
-      categoryIds,
-      images,
-    } = body;
-
-    // Validate input data
-    if (!title || !description) {
+    const id = await getIdFromParams(params);
+    
+    // Validate ID exists (removed format check - Prisma handles ID validation)
+    if (!id) {
       return NextResponse.json(
-        { details: "Title and description are required" },
+        { error: 'Product ID is required' }, 
         { status: 400 }
       );
     }
 
-    // Ensure max 5 images
-    if (images && images.length > 5) {
+    // Parse and validate request body
+    const body = await req.json();
+    const validationResult = UpdateProductSchema.safeParse(body);
+    
+    if (!validationResult.success) {
       return NextResponse.json(
-        { details: "Maximum 5 images allowed." },
+        { 
+          error: 'Validation failed', 
+          details: validationResult.error.format() 
+        },
         { status: 400 }
       );
     }
 
-    // Validate categoryIds array
-    if (categoryIds && !Array.isArray(categoryIds)) {
-      return NextResponse.json(
-        { details: "Category IDs must be an array" },
-        { status: 400 }
-      );
-    }
+    const data = validationResult.data;
 
-    // Validate sizes array
-    if (sizes && !Array.isArray(sizes)) {
-      return NextResponse.json(
-        { details: "Sizes must be an array" },
-        { status: 400 }
-      );
-    }
-
-    // Check product existence
+    // Check if product exists
     const existingProduct = await prisma.product.findUnique({
       where: { id },
-      include: { category: true, sizes: true, images: true }
+      select: { id: true, title: true }
     });
 
     if (!existingProduct) {
-      return NextResponse.json({ details: "Product not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Product not found' }, 
+        { status: 404 }
+      );
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      // Delete existing sizes and images
+    // Verify categories exist
+    const categories = await prisma.category.findMany({
+      where: { id: { in: data.categoryIds } }
+    });
+
+    if (categories.length !== data.categoryIds.length) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid category IDs', 
+          details: 'One or more categories do not exist' 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Update product in transaction
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      // Delete existing related data
       await tx.productSize.deleteMany({ where: { productId: id } });
       await tx.image.deleteMany({ where: { productId: id } });
 
+      // Update product with new data
       return tx.product.update({
-        where: { id: id },
+        where: { id },
         data: {
-          title,
-          description,
-          price: Number(price),
-          discountPercentage: Number(discount) || 0,
-          stock: Number(stock),
-          gender,
-          brand,
-          warrantyInformation: warranty || '',
-          returnPolicy: returnPolicy || '',
-          shippingInformation: shipping || '',
+          title: data.title,
+          description: data.description,
+          price: data.price,
+          discountPercentage: data.discount,
+          stock: data.stock,
+          gender: data.gender,
+          brand: data.brand,
+          warrantyInformation: data.warranty || '',
+          returnPolicy: data.returnPolicy || '',
+          shippingInformation: data.shipping || '',
           // Update categories
           category: {
-            set: [], // Clear existing relationships
-            connect: Array.isArray(categoryIds) && categoryIds.length > 0
-              ? categoryIds.map((categoryId: string) => ({ id: categoryId }))
-              : [],
+            set: [], // Clear existing
+            connect: data.categoryIds.map(categoryId => ({ id: categoryId }))
           },
           // Create new sizes
           sizes: {
-            create: Array.isArray(sizes) && sizes.length > 0
-              ? sizes.map((size: string) => ({ size: size.toUpperCase() }))
-              : [],
+            create: data.sizes.map(size => ({ 
+              size: size.toUpperCase() 
+            }))
           },
           // Create new images
           images: {
             createMany: {
-              data: Array.isArray(images) && images.length > 0
-                ? images.map((imageUrl: string) => ({ url: imageUrl }))
-                : [],
-            },
-          },
+              data: data.images.map(imageUrl => ({ url: imageUrl }))
+            }
+          }
         },
         include: { 
           category: true, 
           sizes: true, 
           images: true 
-        },
+        }
       });
     });
 
-    // Handle stock notifications
-    if (updated.stock > 5) {
-      // If stock is now healthy, delete all notifications for this product.
-      await prisma.notification.deleteMany({
-        where: { productId: updated.id },
-      });
-    } else if (updated.stock <= 5 && updated.stock >= 0) {
-      const existingNotification = await prisma.notification.findFirst({
-        where: { productId: updated.id, read: false },
-      });
+    // Handle stock notifications (non-blocking)
+    await handleStockNotification(updatedProduct);
 
-      if (!existingNotification) {
-        await prisma.notification.create({
-          data: {
-            message: `Stock for ${updated.title} is critically low at ${updated.stock} units.`,
-            productId: updated.id,
-          },
-        });
-      }
-    }
-
-    return NextResponse.json(updated, { status: 200 });
-  } catch (error) {
-    console.error("Error updating product:", error);
+    return NextResponse.json(
+      {
+        message: 'Product updated successfully',
+        product: updatedProduct
+      }, 
+      { status: 200 }
+    );
     
-    // Provide more specific error messages
+  } catch (error) {
+    console.error('Error updating product:', error);
+    
     if (error instanceof Error) {
+      // Handle specific database errors
+      if (error.message.includes('Unique constraint')) {
+        return NextResponse.json(
+          { 
+            error: 'Update failed', 
+            details: 'A product with similar details already exists' 
+          },
+          { status: 409 }
+        );
+      }
+      
       return NextResponse.json(
-        { details: `Server error: ${error.message}` },
+        { 
+          error: 'Failed to update product', 
+          details: error.message 
+        },
         { status: 500 }
       );
     }
     
-    return NextResponse.json({ details: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Server error while updating product' }, 
+      { status: 500 }
+    );
   }
 }
