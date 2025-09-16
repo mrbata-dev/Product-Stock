@@ -18,10 +18,10 @@ const SocialMediaLogin = () => {
           >
             <Button
               variant={'outline'}
-              className='w-full py-4 px-8 bg-transparent border border-gray-700 text-white
-                       hover:bg-gray-900/50 hover:border-gray-600 focus:outline-none 
+              className='w-full py-6 bg-transparent border border-gray-700 text-black
+                       hover:bg-black hover:text-white hover:border-gray-600 focus:outline-none 
                        focus:ring-2 focus:ring-white/20 transition-all duration-300 
-                       rounded-2xl text-lg flex items-center justify-center gap-3 cursor-pointer'
+                       rounded-2xl text-lg flex  justify-center gap-3 cursor-pointer'
                        onClick={() => signIn("google", { callbackUrl: "/" })}
             >
               <Image

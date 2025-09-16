@@ -139,7 +139,7 @@ export async function GET(
   try {
     const id = await getIdFromParams(params);
     
-    // Validate ID exists (removed format check - Prisma handles ID validation)
+    // Validate ID exists
     if (!id) {
       return NextResponse.json(
         { error: 'Product ID is required' }, 
@@ -200,7 +200,7 @@ export async function DELETE(
   try {
     const id = await getIdFromParams(params);
     
-    // Validate ID exists (removed format check - Prisma handles ID validation)
+    // Validate ID exists
     if (!id) {
       return NextResponse.json(
         { error: 'Product ID is required' }, 
@@ -316,7 +316,7 @@ export async function PUT(
 
     const id = await getIdFromParams(params);
     
-    // Validate ID exists (removed format check - Prisma handles ID validation)
+    // Validate ID exists
     if (!id) {
       return NextResponse.json(
         { error: 'Product ID is required' }, 
