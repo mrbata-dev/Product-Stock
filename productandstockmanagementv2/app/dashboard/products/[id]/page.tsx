@@ -35,7 +35,7 @@ export async function generateMetadata({
 // Server-side data fetching
 async function fetchProduct(id: string): Promise<Product> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/products/${id}`,
+    `${process.env.NEXT_URL}/api/products/${id}`,
     { 
       next: { 
         revalidate: 60, 
@@ -68,6 +68,8 @@ export default async function SingleProductPage({
 }) {
   
   try {
+    console.log('Fetching product:', params.id);
+    
     const product = await fetchProduct(params.id)
     
     return (
